@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { actualizarRacha, cargarQuests, cargarRacha, guardarQuests, guardarXP, resetearQuestsDelDia } from '@/utils/storage';
+import { useEffect, useState } from 'react';
+import { AppState, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 const QUESTS = [
   { id: 1, text: '20 min de ejercicio', xp: 30, area: 'Fitness' },
@@ -7,7 +8,7 @@ const QUESTS = [
   { id: 3, text: 'Escribir código 30 min', xp: 35, area: 'Programación' },
   { id: 4, text: 'Registrar gastos del día', xp: 20, area: 'Finanzas' },
   { id: 5, text: 'Llegar 5 min antes a todo', xp: 20, area: 'Hábitos' },
-  { id: 6, text: 'meditar 10 min', xp: 20, area: 'Hábitos' },
+  { id: 6, text: 'Meditar 10 min', xp: 20, area: 'Hábitos' },
 ];
 
 const AREAS = [
@@ -20,11 +21,43 @@ const AREAS = [
 
 export default function HomeScreen() {
   const [done, setDone] = useState<number[]>([]);
+  const [racha, setRacha] = useState(0);
 
-  const toggle = (id: number) => {
-    setDone(prev =>
-      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
-    );
+  useEffect(() => {
+    const init = async () => {
+      await resetearQuestsDelDia();
+      const savedDone = await cargarQuests();
+      const savedRacha = await cargarRacha();
+      console.log('Quests cargadas:', savedDone);
+      setDone(savedDone);
+      setRacha(savedRacha);
+    };
+    init();
+
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        console.log('App volvió al frente — recargando storage');
+        init();
+      }
+    });
+
+    return () => subscription.remove();
+  }, []);
+
+  const toggle = async (id: number) => {
+    const newDone = done.includes(id)
+      ? done.filter((i: number) => i !== id)
+      : [...done, id];
+    setDone(newDone);
+    await guardarQuests(newDone);
+    const newXP = QUESTS
+      .filter(q => newDone.includes(q.id))
+      .reduce((sum, q) => sum + q.xp, 0);
+    await guardarXP(newXP);
+    if (newDone.length === QUESTS.length) {
+      const nuevaRacha = await actualizarRacha();
+      setRacha(nuevaRacha);
+    }
   };
 
   const xpGanada = QUESTS
@@ -37,10 +70,8 @@ export default function HomeScreen() {
   return (
     <ScrollView style={s.screen} contentContainerStyle={s.content}>
 
-      {/* Header */}
       <Text style={s.sysMsg}>— Sistema activo —</Text>
 
-      {/* Player card */}
       <View style={s.playerCard}>
         <View style={s.avatarWrap}>
           <Text style={s.avatarLetter}>E</Text>
@@ -57,7 +88,6 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      {/* XP Bar */}
       <View style={s.xpSection}>
         <View style={s.xpLabelRow}>
           <Text style={s.xpLabel}>XP del rango</Text>
@@ -68,7 +98,6 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      {/* Stats */}
       <Text style={s.sectionTitle}>Stats</Text>
       <View style={s.statsGrid}>
         {[
@@ -85,7 +114,11 @@ export default function HomeScreen() {
         ))}
       </View>
 
-      {/* Quests */}
+      <View style={s.rachaCard}>
+        <Text style={s.rachaNum}>{racha}</Text>
+        <Text style={s.rachaLabel}>días de racha</Text>
+      </View>
+
       <View style={s.questsHeader}>
         <Text style={s.sectionTitle}>Quests de hoy</Text>
         <Text style={s.questCount}>{done.length} / {QUESTS.length}</Text>
@@ -113,7 +146,6 @@ export default function HomeScreen() {
         </TouchableOpacity>
       ))}
 
-      {/* Areas */}
       <Text style={[s.sectionTitle, { marginTop: 16 }]}>Áreas</Text>
       <View style={s.areasGrid}>
         {AREAS.map(a => (
@@ -132,12 +164,10 @@ export default function HomeScreen() {
 }
 
 const s = StyleSheet.create({
-  screen:   { flex: 1, backgroundColor: '#0e0c1a' },
-  content:  { padding: 20, paddingBottom: 40 },
-
-  sysMsg:   { color: '#534AB7', fontSize: 11, letterSpacing: 3, textAlign: 'center', marginBottom: 16, textTransform: 'uppercase' },
+  screen:       { flex: 1, backgroundColor: '#0e0c1a' },
+  content:      { padding: 20, paddingBottom: 40 },
+  sysMsg:       { color: '#534AB7', fontSize: 11, letterSpacing: 3, textAlign: 'center', marginBottom: 16, textTransform: 'uppercase' },
   sectionTitle: { color: '#4a4468', fontSize: 10, letterSpacing: 5, textTransform: 'uppercase', marginBottom: 8 },
-
   playerCard:   { backgroundColor: '#1a1730', borderRadius: 16, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14, borderWidth: 0.5, borderColor: '#2e2850' },
   avatarWrap:   { width: 46, height: 46, borderRadius: 14, backgroundColor: '#26215C', borderWidth: 1.5, borderColor: '#534AB7', alignItems: 'center', justifyContent: 'center' },
   avatarLetter: { color: '#AFA9EC', fontSize: 20, fontWeight: '500' },
@@ -148,19 +178,19 @@ const s = StyleSheet.create({
   rankBadgeText:{ color: '#AFA9EC', fontSize: 10, fontWeight: '500' },
   rankSub:      { color: '#534AB7', fontSize: 10 },
   levelText:    { color: '#4a4468', fontSize: 12 },
-
-  xpSection:  { marginBottom: 16 },
-  xpLabelRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 5 },
-  xpLabel:    { color: '#4a4468', fontSize: 11 },
-  xpVal:      { color: '#7F77DD', fontSize: 11, fontWeight: '500' },
-  xpBg:       { height: 6, backgroundColor: '#1a1730', borderRadius: 3 },
-  xpFill:     { height: 6, backgroundColor: '#7F77DD', borderRadius: 3 },
-
-  statsGrid:  { flexDirection: 'row', gap: 6, marginBottom: 16 },
-  statCell:   { flex: 1, backgroundColor: '#1a1730', borderRadius: 10, padding: 8, alignItems: 'center', borderWidth: 0.5, borderColor: '#2a2540' },
-  statVal:    { color: '#e8e4f4', fontSize: 15, fontWeight: '500' },
-  statLbl:    { color: '#4a4468', fontSize: 9, marginTop: 2 },
-
+  xpSection:    { marginBottom: 16 },
+  xpLabelRow:   { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 5 },
+  xpLabel:      { color: '#4a4468', fontSize: 11 },
+  xpVal:        { color: '#7F77DD', fontSize: 11, fontWeight: '500' },
+  xpBg:         { height: 6, backgroundColor: '#1a1730', borderRadius: 3 },
+  xpFill:       { height: 6, backgroundColor: '#7F77DD', borderRadius: 3 },
+  statsGrid:    { flexDirection: 'row', gap: 6, marginBottom: 16 },
+  statCell:     { flex: 1, backgroundColor: '#1a1730', borderRadius: 10, padding: 8, alignItems: 'center', borderWidth: 0.5, borderColor: '#2a2540' },
+  statVal:      { color: '#e8e4f4', fontSize: 15, fontWeight: '500' },
+  statLbl:      { color: '#4a4468', fontSize: 9, marginTop: 2 },
+  rachaCard:    { backgroundColor: '#1a1730', borderRadius: 12, padding: 12, alignItems: 'center', marginBottom: 16, borderWidth: 0.5, borderColor: '#2e2850', flexDirection: 'row', justifyContent: 'center', gap: 8 },
+  rachaNum:     { color: '#7F77DD', fontSize: 22, fontWeight: '500' },
+  rachaLabel:   { color: '#4a4468', fontSize: 12, marginTop: 2 },
   questsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   questCount:   { color: '#7F77DD', fontSize: 12 },
   questCard:    { backgroundColor: '#1a1730', borderRadius: 14, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 7, borderWidth: 0.5, borderColor: '#2a2540' },
@@ -174,11 +204,10 @@ const s = StyleSheet.create({
   questArea:    { color: '#4a4468', fontSize: 10, marginTop: 2 },
   questXp:      { color: '#534AB7', fontSize: 11, fontWeight: '500' },
   questXpDone:  { color: '#0F6E56' },
-
-  areasGrid:  { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  areaCard:   { width: '47%', backgroundColor: '#1a1730', borderRadius: 12, padding: 10, borderWidth: 0.5, borderColor: '#2a2540' },
-  areaName:   { color: '#c4bede', fontSize: 12, fontWeight: '500', marginBottom: 4 },
-  areaRank:   { color: '#4a4468', fontSize: 10, marginBottom: 6 },
-  areaBarBg:  { height: 3, backgroundColor: '#26215C', borderRadius: 2 },
-  areaBar:    { height: 3, borderRadius: 2 },
+  areasGrid:    { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  areaCard:     { width: '47%', backgroundColor: '#1a1730', borderRadius: 12, padding: 10, borderWidth: 0.5, borderColor: '#2a2540' },
+  areaName:     { color: '#c4bede', fontSize: 12, fontWeight: '500', marginBottom: 4 },
+  areaRank:     { color: '#4a4468', fontSize: 10, marginBottom: 6 },
+  areaBarBg:    { height: 3, backgroundColor: '#26215C', borderRadius: 2 },
+  areaBar:      { height: 3, borderRadius: 2 },
 });
