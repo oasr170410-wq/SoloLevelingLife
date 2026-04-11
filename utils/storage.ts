@@ -77,3 +77,33 @@ export async function resetearQuestsDelDia() {
     await setItem(KEYS.QUESTS, JSON.stringify([]));
   }
 }
+
+export async function guardarTarot(data: {
+  carta: string;
+  orientacion: string;
+  fecha: string;
+  questsDone: boolean[];
+  xpGanado: number;
+}) {
+  await setItem('tarot_hoy', JSON.stringify(data));
+}
+
+export async function cargarTarot(): Promise<{
+  carta: string;
+  orientacion: string;
+  fecha: string;
+  questsDone: boolean[];
+  xpGanado: number;
+} | null> {
+  const val = await getItem('tarot_hoy');
+  if (!val) return null;
+  const data = JSON.parse(val);
+  const hoy = new Date().toDateString();
+  if (data.fecha !== hoy) return null;
+  return data;
+}
+
+export async function guardarXPTotal(xp: number) {
+  const actual = await cargarXP();
+  await setItem(KEYS.XP, String(actual + xp));
+}
