@@ -1,4 +1,4 @@
-import { cargarTarot, guardarTarot, guardarXPTotal } from '@/utils/storage';
+import { cargarTarot, guardarTarot, guardarXPTotal, registrarEvento } from '@/utils/storage';
 import { useEffect, useState } from 'react';
 import {
   ScrollView,
@@ -144,13 +144,20 @@ export default function TarotScreen() {
     setDone(newDone);
     if (selected) {
       const xpGanado = newDone.filter(Boolean).length * Math.round(xpBonus / 3);
+      
       await guardarTarot({
         carta: selected.name,
         orientacion: ori,
         fecha: new Date().toDateString(),
-        questsDone: newDone,
-        xpGanado,
+        questsDone: [false, false, false],
+        xpGanado: 0,
       });
+      await registrarEvento({
+        tipo: 'tarot',
+        descripcion: `${selected.name} — ${ori === 'derecha' ? 'Al derecho' : 'Invertida'}`,
+        xp: 0,
+      });
+
       if (!xpSumado && newDone.filter(Boolean).length === 1) {
         setXpSumado(true);
       }

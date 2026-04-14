@@ -1,4 +1,4 @@
-import { actualizarRacha, cargarQuests, cargarRacha, guardarQuests, guardarXP, resetearQuestsDelDia } from '@/utils/storage';
+import { actualizarRacha, cargarQuests, cargarRacha, guardarQuests, guardarXP, registrarEvento, resetearQuestsDelDia } from '@/utils/storage';
 import { useEffect, useState } from 'react';
 import { AppState, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
@@ -54,6 +54,16 @@ export default function HomeScreen() {
       .filter(q => newDone.includes(q.id))
       .reduce((sum, q) => sum + q.xp, 0);
     await guardarXP(newXP);
+    if (!done.includes(id)) {
+      const quest = QUESTS.find(q => q.id === id);
+      if (quest) {
+        await registrarEvento({
+          tipo: 'quest',
+          descripcion: quest.text,
+          xp: quest.xp,
+        });
+      }
+    }
     if (newDone.length === QUESTS.length) {
       const nuevaRacha = await actualizarRacha();
       setRacha(nuevaRacha);

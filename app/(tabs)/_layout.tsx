@@ -38,6 +38,16 @@ export default function TabLayout() {
           ),
         }}
       />
+
+      <Tabs.Screen
+        name="historial"
+        options={{
+          title: 'Historial',
+          tabBarIcon: ({ color }) => (
+            <IconSymbol size={24} name="clock.fill" color={color} />
+          ),
+        }}
+      />
       <Tabs.Screen
         name="explore"
         options={{

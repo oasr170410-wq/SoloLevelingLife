@@ -107,3 +107,42 @@ export async function guardarXPTotal(xp: number) {
   const actual = await cargarXP();
   await setItem(KEYS.XP, String(actual + xp));
 }
+
+export type Evento = {
+  id: string;
+  tipo: 'quest' | 'tarot' | 'rango';
+  descripcion: string;
+  xp: number;
+  fecha: string;
+  hora: string;
+  timestamp: number;
+};
+
+export async function registrarEvento(evento: Omit<Evento, 'id' | 'fecha' | 'hora' | 'timestamp'>) {
+  const ahora = new Date();
+  const nuevoEvento: Evento = {
+    ...evento,
+    id: String(ahora.getTime()),
+    fecha: ahora.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+    hora: ahora.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }),
+    timestamp: ahora.getTime(),
+  };
+  const historial = await cargarHistorial();
+  historial.unshift(nuevoEvento);
+  const ultimos100 = historial.slice(0, 100);
+  await setItem('historial', JSON.stringify(ultimos100));
+  return nuevoEvento;
+}
+
+export async function cargarHistorial(): Promise<Evento[]> {
+  const val = await getItem('historial');
+  return val ? JSON.parse(val) : [];
+}
+
+export async function exportarHistorial(): Promise<string> {
+  const historial = await cargarHistorial();
+  const lineas = historial.map(e =>
+    `${e.fecha} ${e.hora} | ${e.tipo.toUpperCase()} | ${e.descripcion} | +${e.xp} XP`
+  );
+  return lineas.join('\n');
+} 
