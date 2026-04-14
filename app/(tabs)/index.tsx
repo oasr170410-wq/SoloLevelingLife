@@ -132,6 +132,26 @@ export default function HomeScreen() {
         <Text style={s.rachaLabel}>días de racha</Text>
       </View>
 
+      <TouchableOpacity
+        style={{ backgroundColor: '#26215C', borderRadius: 10, padding: 12, alignItems: 'center', marginBottom: 12 }}
+        onPress={async () => {
+          const { scheduleNotificationAsync } = await import('expo-notifications');
+          await scheduleNotificationAsync({
+            content: {
+              title: '— Sistema activo —',
+              body: '¡Prueba de notificación exitosa, cazadora!',
+            },
+            trigger: { seconds: 5 } as any,
+          });
+          alert('Notificación programada — aparece en 5 segundos');
+        }}
+        activeOpacity={0.8}
+      >
+        <Text style={{ color: '#AFA9EC', fontSize: 12, fontWeight: '500' }}>
+          Probar notificación (5 seg)
+        </Text>
+      </TouchableOpacity>
+
       <View style={s.questsHeader}>
         <Text style={s.sectionTitle}>Quests de hoy</Text>
         <Text style={s.questCount}>{done.length} / {QUESTS.length}</Text>
