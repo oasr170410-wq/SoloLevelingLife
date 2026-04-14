@@ -1,3 +1,4 @@
+import { pedirPermisos, programarNotificaciones } from '@/utils/notificaciones';
 import { actualizarRacha, cargarQuests, cargarRacha, guardarQuests, guardarXP, registrarEvento, resetearQuestsDelDia } from '@/utils/storage';
 import { useEffect, useState } from 'react';
 import { AppState, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -31,6 +32,8 @@ export default function HomeScreen() {
       console.log('Quests cargadas:', savedDone);
       setDone(savedDone);
       setRacha(savedRacha);
+      const permiso = await pedirPermisos();
+      if (permiso) await programarNotificaciones();
     };
     init();
 
