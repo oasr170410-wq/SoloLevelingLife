@@ -1,5 +1,4 @@
-import { pedirPermisos, programarNotificaciones } from '@/utils/notificaciones';
-import { actualizarRacha, cargarQuests, cargarRacha, guardarQuests, guardarXP, registrarEvento, resetearQuestsDelDia } from '@/utils/storage';
+import { actualizarRacha, cargarQuests, cargarRacha, cargarXP, guardarQuests, guardarXP, registrarEvento, resetearQuestsDelDia } from '@/utils/storage';
 import { useEffect, useState } from 'react';
 import { AppState, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
@@ -23,23 +22,23 @@ const AREAS = [
 export default function HomeScreen() {
   const [done, setDone] = useState<number[]>([]);
   const [racha, setRacha] = useState(0);
+  const [xpAcumulado, setXpAcumulado] = useState(0);
 
   useEffect(() => {
     const init = async () => {
       await resetearQuestsDelDia();
       const savedDone = await cargarQuests();
       const savedRacha = await cargarRacha();
+      const savedXP = await cargarXP();
       console.log('Quests cargadas:', savedDone);
       setDone(savedDone);
       setRacha(savedRacha);
-      const permiso = await pedirPermisos();
-      if (permiso) await programarNotificaciones();
+      setXpAcumulado(savedXP);
     };
     init();
 
     const subscription = AppState.addEventListener('change', (state) => {
       if (state === 'active') {
-        console.log('App volvió al frente — recargando storage');
         init();
       }
     });
@@ -53,10 +52,21 @@ export default function HomeScreen() {
       : [...done, id];
     setDone(newDone);
     await guardarQuests(newDone);
-    const newXP = QUESTS
-      .filter(q => newDone.includes(q.id))
-      .reduce((sum, q) => sum + q.xp, 0);
-    await guardarXP(newXP);
+    if (!done.includes(id)) {
+      const quest = QUESTS.find(q => q.id === id);
+      if (quest) {
+        const nuevoXP = xpAcumulado + quest.xp;
+        setXpAcumulado(nuevoXP);
+        await guardarXP(nuevoXP);
+      }
+    } else {
+      const quest = QUESTS.find(q => q.id === id);
+      if (quest) {
+        const nuevoXP = Math.max(0, xpAcumulado - quest.xp);
+        setXpAcumulado(nuevoXP);
+        await guardarXP(nuevoXP);
+      }
+    }
     if (!done.includes(id)) {
       const quest = QUESTS.find(q => q.id === id);
       if (quest) {
@@ -73,12 +83,12 @@ export default function HomeScreen() {
     }
   };
 
-  const xpGanada = QUESTS
+  const xpHoy = QUESTS
     .filter(q => done.includes(q.id))
     .reduce((sum, q) => sum + q.xp, 0);
 
   const xpTotal = 500;
-  const xpPct = Math.round((xpGanada / xpTotal) * 100);
+  const xpPct = Math.min(Math.round((xpAcumulado / xpTotal) * 100), 100);
 
   return (
     <ScrollView style={s.screen} contentContainerStyle={s.content}>
@@ -104,7 +114,7 @@ export default function HomeScreen() {
       <View style={s.xpSection}>
         <View style={s.xpLabelRow}>
           <Text style={s.xpLabel}>XP del rango</Text>
-          <Text style={s.xpVal}>{xpGanada} / {xpTotal}</Text>
+          <Text style={s.xpVal}>{xpAcumulado} / {xpTotal}</Text>
         </View>
         <View style={s.xpBg}>
           <View style={[s.xpFill, { width: `${xpPct}%` as any }]} />
